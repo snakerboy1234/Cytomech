@@ -1,0 +1,9 @@
+
+def strelDiamond(distanceToVerticies):
+
+
+
+    return
+
+
+
