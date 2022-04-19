@@ -5,22 +5,50 @@ import matplotlib.pyplot as plt
 import time
 import sys
 import os
+import re
 
-PATH = r'C:\Users\osipo\Desktop\CaptureFilesSeperated\test1Files'
+SCALEDOWNFACTOR = 0.2 #This is a magic number but what can ya do. I dont have a good way of getting image resolution.
+SCALEUPFACTOR = 2.0
+GAIN = 13.2
+DISTANCE_BETWEEN_TEETH = 10
+PREDEFINED_LENGTH = 5.004
+ONLYINCREASING = 0
+USING_EXCEL_DATA_CHANGE = 1
+TEST = 1
+SWITCH_POINT = 5
 
-#f is designation within listdir that checks if the object is a function but this should read through the directory in the path above and give a list of strings that are the file names
-imageFileNameList = [f for f in os.listdir(PATH) if os.path.isfile(os.path.join(PATH,f))]
-voltageList = [12,24,36,24,12]
-imageList = numpy.empty(len(imageFileNameList), dtype=object)
+#following sort function taken from stack overflow
+#preforms a numerical sort on images luckily this will not be relevant for actual use of these functions.
+if(TEST == 1):
+    numbers = re.compile(r'(\d+)')
+    def numericalSort(value):
+        parts = numbers.split(value)
+        parts[1::2] = map(int, parts[1::2])
+        return parts
 
-print('file names able to be read')
+    PATH = r'C:\Users\osipo\Desktop\CaptureFilesSeperated\test3Files'
 
-for i in range(0, len(imageFileNameList)):
-    imageList[i] = cv2.imread(join(PATH, imageFileNameList[i]))
+    #f is designation within listdir that checks if the object is a function but this should read through the directory in the path above and give a list of strings that are the file names
+    imageFileNameList = [f for f in os.listdir(PATH) if os.path.isfile(os.path.join(PATH,f))]
+    voltageList = [1,2,3,4,5,4,3,2,1,0.5]
+    imageList = np.empty(len(imageFileNameList), dtype=cv2.Mat)
+    imageFileNameListSorted = sorted(imageFileNameList, key=numericalSort)
 
+    i = 0
+    for i in range(0, len(imageFileNameListSorted)):
+        imageList[i] = cv2.imread(os.path.join(PATH, imageFileNameListSorted[i]))
+    i = 0
 #imageList = [0] This is a test function of images as if incorporated from the GUI code base
 
-def imclearborder(imgBW, radius):
+def polynomialFit(strainArray, stressArray, power):
+
+
+
+    return 0
+
+#removes image data from borders causing issues
+
+def imclearborders(imgBW, radius):
 
     # Given a black and white image, first find all of its contours
     imgBWcopy = imgBW.copy()
@@ -57,7 +85,9 @@ def imclearborder(imgBW, radius):
 
     return imgBWcopy
 
-def stressEquation(voltageArray, stressArray):
+#Changes electrical feild measurements into force measurments using predefinied curve fitting outputs force array
+
+def electricFieldToForce(voltageArray, stressArray):
 
     i = 0
 
@@ -66,25 +96,44 @@ def stressEquation(voltageArray, stressArray):
     xPowerThree = 0
     xPowerFour = 0
 
-    A = 4.9*(pow(10, -14))
-    B = 1.2*(pow(10, -12))
-    C = 6.5*(pow(10, -11))
-    D = -2.4*(pow(10, -11))
+    if(USING_EXCEL_DATA_CHANGE == 1):
 
+        A = 6*(pow(10, -11))
+        B = 6*(pow(10, -12))
+        C = 9*(pow(10, -12))
 
+        while(i < len(voltageArray)):
 
-    while(i<len(voltageArray)):
+            x = voltageArray[i]
+            xPowerTwo = pow(x, 2)
 
-        x = voltageArray[i]
-        xPowerTwo = pow(x,2)
-        xPowerThree = pow(x, 3)
-        xPowerFour = pow(x, 4)
+            stressArray[i] = (A*xPowerTwo)+(B*x)+C
 
-        stressArray[i] = (A*xPowerFour)+(B*xPowerThree)+(C*xPowerTwo)+(D*x)
+            i = i + 1
 
-        i = i + 1
+    elif(USING_EXCEL_DATA_CHANGE != 1):
+        A = 4.9*(pow(10, -14))
+        B = 1.2*(pow(10, -12))
+        C = 6.5*(pow(10, -11))
+        D = -2.4*(pow(10, -11))
+
+        while(i<len(voltageArray)):
+
+            x = voltageArray[i]
+            xPowerTwo = pow(x, 2)
+            xPowerThree = pow(x, 3)
+            xPowerFour = pow(x, 4)
+
+            stressArray[i] = (A*xPowerFour)+(B*xPowerThree)+(C*xPowerTwo)+(D*x)
+
+            i = i + 1
+
+    else:
+        i == i
 
     return 0
+
+#Takes input of stress and strain arrays and test point to generate linear regression and polynomial curve fitting out puts hysteresis and graph data
 
 def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OUTPUT_FILE):
 
@@ -104,8 +153,8 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     GLOuter = 0
     GLInner = 0
 
-    integralExponential = 0
-    integralLogarithmic = 0
+    integral = 0
+    
 
     root = 0
     weight = 0
@@ -119,9 +168,6 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     splitStrainArrayDecreasing = []
     splitStressArrayDecreasing = []
 
-    #initialize numpy array variables
-    x = np.linspace(0.0000000001, 0.00000015, 101)
-
     #test initialization 
     if(TEST == 1):
 
@@ -134,7 +180,7 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
         y2 = np.log(9*x) + 0.1*np.random.random(len(x))
 
     #end of test initialization
-
+    x  = np.linspace(-2, 2, 101)
     data = np.genfromtxt('GAUSS-24.dat',
                      skip_header=1,
                      skip_footer=1,
@@ -241,67 +287,129 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     strainArrayIncreasing = np.asarray(splitStrainArrayIncreasing)
     strainArrayIncreasingAbs = np.absolute(splitStrainArrayIncreasing)
 
-    while(i<len(stressArrayDecreasing)):
+    if(ONLYINCREASING == 0):
+        while(i<len(stressArrayIncreasing)):
+            print(stressArrayIncreasing[i])
 
-        print(stressArrayDecreasing[i])
+            i = i + 1
 
-        i = i + 1
 
-    A = np.vstack([stressArrayDecreasing, np.ones(len(stressArrayDecreasing))]).T
-    beta, log_alpha = np.linalg.lstsq(A, np.log(strainArrayDecreasingAbs), rcond = None)[0]
-    alpha = np.exp(log_alpha)
+        i = 0
+        while(i<len(stressArrayDecreasing)):
 
-    print('past exponential equation')
-    sys.stdout.flush()
+            print(stressArrayDecreasing[i])
 
-    #should obtain a increasing function of the form y=(C)ln(Dx)
+            i = i + 1
 
-    C = np.vstack([stressArrayIncreasing, np.ones(len(stressArrayIncreasing))]).T
-    Delta, log_cappa = np.linalg.lstsq(C, np.log(strainArrayIncreasingAbs), rcond = None)[0]
-    Cappa = np.exp(log_cappa/Delta)
+        i = 0
+        while(i < len(strainArrayIncreasing)):
 
-    #linear model
-    linearModel = np.polyfit(strainArrayArr,stressArrayArr,1)
-    modLinearModel = np.poly1d(linearModel)
+            print(strainArrayIncreasing[i])
 
-    print(beta)
+            i = i + 1
+
+        i = 0
+        while(i << len(strainArrayDecreasing)):
+
+            print(strainArrayDecreasing[i])
+
+            i = i + 1
+
+        print('past exponential equation')
+        sys.stdout.flush()
+
+    else:
+        i == i
 
     #beta = 9999
     #Delta = -999999
 
-    sys.stdout.flush()
+    stressArrayDecreasingArr = np.asarray(stressArrayDecreasing)
+    stressArrayIncreasingArr = np.asarray(stressArrayIncreasing)
+    strainArrayDecreasingArr = np.asarray(strainArrayDecreasing)
+    strainArrayIncreasingArr = np.asarray(strainArrayIncreasing)
 
-    plt.figure(figsize = (10,8))
+    strainArrayDecreasingSquared = np.square(strainArrayDecreasingArr)
+    strainArrayIncreasingSquared = np.square(strainArrayIncreasingArr)
+
+    print('strain decreasing')
+
+    sys.stdout.flush()
+    a = plt.figure(figsize = (10,8))
+    axes= a.add_axes([0.1,0.1,0.8,0.8])
     #plt.plot(strainArrayIncreasingAbs, splitStressArrayIncreasing, 'b.')#ln
     #plt.plot(strainArrayDecreasingAbs, splitStressArrayDecreasing, 'b.')#e
-    plt.plot(x, alpha*np.exp(beta*x), 'r')
-    plt.plot(x, (Cappa*np.log(np.absolute(Delta*x))+2), 'r')
-    plt.plot(x, modLinearModel(x), color="green")
+    X = np.arange(0, 20)
+    if(ONLYINCREASING == 0):
+        axes.plot(strainArrayDecreasing, stressArrayDecreasing, 'o')
+        #axes.plot(stressArrayDecreasing, np.polyval(yEst, X))
+        axes.plot(strainArrayIncreasing, stressArrayIncreasing, 'o')
+        #axes.plot(stressArrayIncreasing, np.polyval(yEst2, X))
+
+        #plt.plot(x, alpha*np.exp(beta*x), 'r')
+        #plt.plot(x, (Cappa*np.log(np.absolute(Delta*x))+2), 'r')
+
+    else:
+
+        i == i
+
+    A = np.vstack([strainArrayArr, np.ones(len(strainArrayArr))]).T
+    stressArrayArr = stressArrayArr[:, np.newaxis]
+
+    linearSlope = np.dot((np.dot(np.linalg.inv(np.dot(A.T,A)),A.T)),stressArrayArr)
+
+    print(linearSlope)
+
+    B = np.vstack([strainArrayDecreasingArr, np.ones(len(strainArrayDecreasingArr))])
+    B = np.vstack([strainArrayDecreasingSquared, B]).T
+
+    stressArrayDecreasingArr = stressArrayDecreasingArr[:, np.newaxis]
+
+    polyValuesDecreasing = np.dot((np.dot(np.linalg.inv(np.dot(B.T,B)),B.T)),stressArrayDecreasingArr)
+
+    print(polyValuesDecreasing)
+
+    C = np.vstack([strainArrayIncreasingSquared, strainArrayIncreasingArr, np.ones(len(strainArrayIncreasingArr))]).T
+    stressArrayIncreasingArr = stressArrayIncreasingArr[:, np.newaxis]
+
+    polyValuesIncreasing = np.dot((np.dot(np.linalg.inv(np.dot(C.T,C)),C.T)),stressArrayIncreasingArr)
+
+    print(linearSlope)
+    axes.plot(x, linearSlope[0]*x+linearSlope[1], 'r')
+    axes.plot(x, (polyValuesDecreasing[0]*x*x)+polyValuesDecreasing[1]*x+polyValuesDecreasing[2], 'r')
+    axes.plot(x, (polyValuesIncreasing[0]*x*x)+polyValuesIncreasing[1]*x+polyValuesIncreasing[2], 'r')
+    plt.ylim([0,50])
+    plt.xlim([-0.2,0.2])
     plt.xlabel('strain')
     plt.ylabel('stress (Pa)')
-    plt.title('Hyteresis Curve')
+    plt.title('Stiffness Curve')
     plt.show()
     plt.savefig('hystersis_curve.png')
 
     GLOuter = (leftbound - rightbound)/2
     GLInner = (leftbound + rightbound)/2
 
-    i = 0
-    while(i < SIZEOFGUASSDATATWENTYFOUR):
+    if(ONLYINCREASING == 0):
 
-        combineRootWeightValues = data[i]
+        i = 0
 
-        root = combineRootWeightValues[0]
-        weight = combineRootWeightValues[1]
+        while(i < SIZEOFGUASSDATATWENTYFOUR):
 
-        integralExponential = (GLOuter) * (weight) *(alpha * np.exp(beta * (GLOuter) * root * (GLInner))) + integralExponential 
+            combineRootWeightValues = data[i]
 
-        i = i + 1
+            root = combineRootWeightValues[0]
+            weight = combineRootWeightValues[1]
 
+            integral = (GLOuter) * (weight) *(alpha * np.exp(beta * (GLOuter) * root * (GLInner))) + integral
 
+            i = i + 1
+
+    print(integral)
     return  0
 
-def bwareaopen(img, min_size, connectivity=8):
+#takes image and min size to delete smaller image artifacts, connectivity is currently broken returns modified image
+
+def bwareaopen(img, min_size, connectivity):
         """Remove small objects from binary image (approximation of 
         bwareaopen in Matlab for 2D images).
     
@@ -316,8 +424,10 @@ def bwareaopen(img, min_size, connectivity=8):
     
         # Find all connected components (called here "labels")
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
-            img, connectivity=connectivity)
+            img)
         
+        print("finds connected components")
+
         # check size of all connected components (area in pixels)
         for i in range(num_labels):
             label_size = stats[i, cv2.CC_STAT_AREA]
@@ -327,79 +437,115 @@ def bwareaopen(img, min_size, connectivity=8):
                 img[labels == i] = 0
                 
         return img
+      
+def fillInBlanks(strainList):
+    #I despise this function as it invariably looses data but its the only way to get around limitations with pixels and resolution
+    i = 0
+    j = 1
+    k = -1
 
-def ImageAnalysis(voltageList, imageList):
+    lengthOfStrainList = len(strainList)
+    nextInLineForStrainList = 0
+
+    while(i < lengthOfStrainList):
+
+        if(strainList[i] == 0 & (i != 0)):
+            while(strainList[i] == 0):
+                j = j + 1
+                nextInLineForStrainList = strainList[j]
+                if(nextInLineForStrainList == 0):
+                    i = i
+                    #repeat
+                elif(nextInLineForStrainList != 0):
+                    
+                    if(strainList[j] == 0):
+
+                        i == i
+
+                    elif(strainList[j] != 0):
+
+                        strainList[i] = i
+
+                else:
+                    exit()
+
+
+        i = i + 1
+        j = i + 2
+        k = i
+
+    return 0
+
+   # main function which preforms image analysis takes image list, voltage data, distance between teeth, the switchpoint, 
+   # and gain, gain used solely during testing with daniels code and for our purposes is 1
+
+def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefiniedLength, switchPoint):
 
     #test is on at 1
     TEST = 0
-    SKIP_MANUAL_IMAGE_CROP = 1
+    SKIP_MANUAL_IMAGE_CROP = 0
     ALLOW_PRINTS_FOR_TESTING = 1
+    JUST_OVER_TWO_THIRDS_A_PLATELET = 0.65
 
     #iterators
     i = 0
     j = 0
     k = 0
 
-    #opencv variable designation
-    plateletVideoData = cv2.VideoCapture(r"C:\Users\osipo\Desktop\platelet.avi")
-    FPS = int(plateletVideoData.get(cv2.CAP_PROP_FPS))
-    width  = plateletVideoData.get(cv2.CAP_PROP_FRAME_WIDTH)
-    height = plateletVideoData.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    #This is a function known to be glitchy
-    numFrames = int(plateletVideoData.get(cv2.CAP_PROP_FRAME_COUNT))
-    #platelet = 0
+    numFrames = len(imageList)
 
     #these all seem like old values
     pixelCheckGate = 0
     numberOfWhitePixels = 0
     lengthOfImageArrayWhitePixels = 0
     longestLengthOfImageArrayWhitePixels = -1
+    lengthOfPixel = -1
 
     #need to change designation to list as array is a sperate numpy class applicable to lists in math and functions
-    radiusArray = []
+    lengthArray = []
     strainArray = []
     stressArray = []
-    #voltageArray = [12,24,36,24,12]
+    forceArray  = []
+    stressArrayToPascals = []
+
+    #these values exist but will be deleted in final code
+    amplifiedVoltageArray = []
+    electricFieldArray = []
+    forceArray = []
+
     cropImageSidesListTest = [319, 156, 194, 154]
 
     BUG_TESTING_TEXT_OUTPUT_FILE = open("bugReport.txt", "w+")
 
+    print("data sent through")
+
     while(i < numFrames):
-        radiusArray.append(0)
+        lengthArray.append(0)
         i = i + 1
     i = 0
-    while(i < (numFrames-1)):
+    while(i < (len(voltageList))):
         strainArray.append(0)
         stressArray.append(0)
+        amplifiedVoltageArray.append(0)
+        electricFieldArray.append(0)
+        forceArray.append(0)
+        stressArrayToPascals.append(0)
         i = i + 1
     i = 0
 
-    MINUMUMSIZEOFPXIELS = 7961/2 #value of a combined platelet halved should ensure only platelet sized objects appear.
+    print("lists set up")
+
     PI = np.pi
 
     tempStressArray = np.empty(numFrames, dtype=object) 
 
-    while ((plateletVideoData.isOpened()) and (TEST != 1)):
+    #needs to be changed to consider new data
+    while ((i < numFrames) and (TEST != 1)):
  
-        # Capture frame-by-frame
-        ret, frame = plateletVideoData.read()
-        if ret == True:
-
-            # Display the resulting frame
-            #cv2.imshow('Frame',frame)
-
-            # Press Q on keyboard to  exit
-            if cv2.waitKey(25) & 0xFF == ord('q'):
-                break
-
-      # Break the loop
-        else: 
-            break
-        #will obtain a cropped image named pletelet
-        grayPlatelet = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        thresholdValue, plateletImgThresholdApplied = cv2.threshold(grayPlatelet, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)#attepmt at otsus thresholding techniques.
-
+        frame = imageList[i]
+        frameScaled = cv2.resize(frame, None, fx= SCALEDOWNFACTOR, fy= SCALEDOWNFACTOR, interpolation= cv2.INTER_LINEAR)#daniels images are in 4k ULTRA resolution. Opencv HATES this so this will scale it down hopefully with little data loss
+        frameNormalized = cv2.normalize(frameScaled, dst=None, alpha=0, beta=500, norm_type=cv2.NORM_MINMAX)#beta and alpha are magic numbers. I dont really understand why .tiff files are like this
+        height, width, channels = frameNormalized.shape
 
         if(SKIP_MANUAL_IMAGE_CROP == 1):
             imCrop = plateletImgThresholdApplied[int(cropImageSidesListTest[1]):int(cropImageSidesListTest[1]+cropImageSidesListTest[3]), int(cropImageSidesListTest[0]):int(cropImageSidesListTest[0]+cropImageSidesListTest[2])]
@@ -408,51 +554,112 @@ def ImageAnalysis(voltageList, imageList):
         elif(i == 0):
             # Select ROI
             fromCenter = False #Designates ROI not auto defined from center allowing user input in opencv function
-            cropImageSidesList = cv2.selectROI("Image", plateletImgThresholdApplied, fromCenter) #function for selection of region of interest
+            cropImageSidesList = cv2.selectROI("Crop Stage user input required", frameScaled, fromCenter) #function for selection of region of interest
 
             # Crop image
-            imCrop = plateletImgThresholdApplied[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])] #using obtained regions of interest crop is preformed
-
-            print(int(cropImageSidesList[1]), int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]), int(cropImageSidesList[0]+cropImageSidesList[2])) #test function
+            imCrop = frameScaled[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])] #using obtained regions of interest crop is preformed
 
             # Display cropped image
-            cv2.imshow("Image", imCrop)
-            #cv2.waitKey(0)
+            cv2.imshow("cropped image", imCrop)
+            resizedCrop = cv2.resize(imCrop, None, fx= SCALEUPFACTOR, fy= SCALEUPFACTOR, interpolation= cv2.INTER_LINEAR)
+            cv2.imshow("cropped image resized", resizedCrop)
+
         elif(i != 0):
-            imCrop = plateletImgThresholdApplied[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])]
+            imCrop = frameScaled[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])]
         else:
             BUG_TESTING_TEXT_OUTPUT_FILE.write("value of i is unexpected error")
             BUG_TESTING_TEXT_OUTPUT_FILE.close()
             sys.exit()
 
+
+        grayPlatelet = cv2.cvtColor(imCrop, cv2.COLOR_BGR2GRAY)
+
+        cv2.imshow("Gray filter on platelet", grayPlatelet)
+
+        thresholdValue, plateletImgThresholdApplied = cv2.threshold(grayPlatelet, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)#attepmt at otsus thresholding techniques.
+        cv2.imshow("image threshold applied", plateletImgThresholdApplied)
+        whitePixelsOnScreen =  np.sum(plateletImgThresholdApplied == 255)
+        MINUMUMSIZEOFPXIELS = whitePixelsOnScreen*(JUST_OVER_TWO_THIRDS_A_PLATELET)
+
+        print("white pixels finished")
+
         #Filling platelet holes. 
         plateletFloodFilled = plateletImgThresholdApplied.copy()#preinitialization of platelet flood filled
 
-        height, width = plateletImgThresholdApplied.shape[:2]#I am unable to understand what .shape() and cannot find what this is online but seems to give width and height with difference of n pixels
+        if(i == 0):
+            print("flood fill assigned")
+
+        height, width = plateletFloodFilled.shape[:2]#I am unable to understand what .shape() and cannot find what this is online but seems to give width and height with difference of n pixels
+
+        if(i == 0):
+            print("shape occurs")
 
         mask = np.zeros((height+2, width+2), np.uint8)#creates a mask or a zeros array of same size and shape of given platelet matrix array. Values within this array are set to unsigned int lengths of 8
 
+        if(i == 0):
+            print("mask occurs")
+
         cv2.floodFill(plateletFloodFilled, mask, (0,0), 255)#holes within the space selected are filled here
 
+        if(i == 0):
+            print("floodfill occurs")
+
+
         plateletFloodFilledInverse = cv2.bitwise_not(plateletFloodFilled)
+
+        if(i == 0):
+            print("floodfill inverse occurs")
+
         plateletBinarizedHoleFilter = plateletImgThresholdApplied | plateletFloodFilledInverse
-        plateletBinarizedHoleFilterClearedBorders = imclearborders.imclearborder(plateletBinarizedHoleFilter, 4)#put this definition into the function no nessecity for includes
-        plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter = bwareaopen.bwareaopen(plateletBinarizedHoleFilterClearedBorders, MINUMUMSIZEOFPXIELS, 4)
+
+        if(i == 0):
+            print("binarization occurs")
+
+        plateletBinarizedHoleFilterClearedBorders = imclearborders(plateletBinarizedHoleFilter, 4)#put this definition into the function no nessecity for includes
+
+        if(i == 0):
+            print("hole filter occurs")
+
+        plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter = bwareaopen(plateletBinarizedHoleFilterClearedBorders, MINUMUMSIZEOFPXIELS, 4)
+
+        print("mask found")
+
+        if(i == 0):
+            cv2.imshow("post processing image", plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter)
+            cv2.waitKey(0)
+        else:
+            i = i
+
+        #j = 0
+        #k = 0
+        #XLim = cropImageSidesList[3] - cropImageSidesList[1]
+        #YLim = cropImageSidesList[2] - cropImageSidesList[0]
+
+        #these values present data but are incorrect
+
+        #j = int(cropImageSidesList[1])
+        j = 0
+        #k = int(cropImageSidesList[0])
+        k = 0
+        XLim = int(cropImageSidesList[3] + cropImageSidesList[1])
+        YLim = int(cropImageSidesList[2] + cropImageSidesList[0])
+
+        height, width = plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter.shape
+
+        longestLengthOfImageArrayWhitePixels = 0
+
+        #finding longest length of pixel in given image
+
+        print(height, width)
+        print(XLim, YLim)
 
         j = 0
         k = 0
-        XLim = cropImageSidesList[3] - cropImageSidesList[1]
-        YLim = cropImageSidesList[2] - cropImageSidesList[0]
+        while(j < (width - 1)):
 
-        #these values present data but are incorrect
-        #j = int(cropImageSidesList[1])
-        #k = int(cropImageSidesList[0])
-        #XLim = int(cropImageSidesList[1]+cropImageSidesList[3])
-        #YLim = int(cropImageSidesList[0]+cropImageSidesList[2])
+            while(k < (height - 1)):
 
-        while(j < XLim):
-            while(k < YLim):
-                if(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter[j, k] == 255):
+                if(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter[k, j] == 255):
                     pixelCheckGate = 1
                     lengthOfImageArrayWhitePixels = lengthOfImageArrayWhitePixels + 1
                 else:
@@ -462,28 +669,50 @@ def ImageAnalysis(voltageList, imageList):
                         break
                 k = k + 1
 
+            #k = int(cropImageSidesList[0])
             k = 0
             pixelCheckGate = 0
-
             j = j + 1
 
             if(lengthOfImageArrayWhitePixels > longestLengthOfImageArrayWhitePixels):
                 longestLengthOfImageArrayWhitePixels = lengthOfImageArrayWhitePixels
+                lengthOfImageArrayWhitePixels = 0
             else:
-                i = i
+                lengthOfImageArrayWhitePixels = 0
+
+        print("longest length found")
+        #defining pixel length and area with given pixel length with outside parameters with first run barring that some other value
+
+        if((i == 0) or (lengthOfPixel == -1)):
+            numberOfWhitePixels = np.sum(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter == 255) 
+
+            lengthOfPixel = predefiniedLength/longestLengthOfImageArrayWhitePixels
+
+            #platelet area will not change but this is possibly a area of bug checking, large area change implies bad data or occlusion
+            areaOfPlateletInitial = numberOfWhitePixels * lengthOfPixel
+
+            if((i == 0) and (lengthOfPixel == -1)):
+                print("initial loop did not find pixel length")
+
+        elif(i != 0):
+            i = i
+        else:
+            exit()
+
+        print("pixel length definied")
+        #pixel length bug check
 
         if(longestLengthOfImageArrayWhitePixels == -1):
             print('there is either a bug with the length check or there is no vision object within the given parameters')
         elif(longestLengthOfImageArrayWhitePixels > -1):
-            print(longestLengthOfImageArrayWhitePixels)
+            #print(longestLengthOfImageArrayWhitePixels)
             i = i
         else:
-            print('value of longestLengthOfImageArrayWhitePixels is not positive and below thought to be possible values')
+            print('value of longestLengthOfImageArrayWhitePixels is not positive and below thought to be possible values')  
 
-        numberOfWhitePixels = np.sum(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter == 255)   
+        lengthArray[i] = longestLengthOfImageArrayWhitePixels * lengthOfPixel
 
-        #radiusArray[i] = np.sqrt((numberOfWhitePixels)/(PI))
-        radiusArray[i] = longestLengthOfImageArrayWhitePixels
+        #testing function will be deleted in final product
 
         if(TEST == 1):
             hysteresis()
@@ -491,33 +720,53 @@ def ImageAnalysis(voltageList, imageList):
             i = i + 1;
             #do nothing
 
-        i = 0
-    while(i < (len(radiusArray) - 1)):
+    #while loop split
+    i = 0
+    while(i < (len(lengthArray) - 1)):
 
         j = i + 1
 
-        if(radiusArray[i] == 0):
-            print('radius array zero error')
-            exit()
-        elif(radiusArray[i] != 0):
-            strainArray[i] = (radiusArray[j] - radiusArray[i])/radiusArray[i]
+        if(lengthArray[i] == 0):
+            print('radius array zero')
+            #not nessesarily an error but will tell user that there is no value here
+        elif(lengthArray[i] != 0):
+            strainArray[i] = (lengthArray[j] - lengthArray[i])/lengthArray[i]
         else:
-            print('radius array error radius array is an expected data type')
+            print('length array error')
             exit()
 
         i = i + 1
 
 
-    stressEquation(voltageList, stressArray)
+    print("strain array discovered")
+    i = 0
+    while(i < (len(voltageList))):
+        amplifiedVoltageArray[i] = voltageList[i]*Gain
+        electricFieldArray[i] = amplifiedVoltageArray[i]/distanceBetweenTeeth
+        i = i + 1
 
-    hysteresis(strainArray, stressArray, 2, TEST, BUG_TESTING_TEXT_OUTPUT_FILE)
+    electricFieldToForce(electricFieldArray, forceArray)
+
+    i = 0
+    while(i < len(stressArray)):
+        stressArray[i] = forceArray[i]/areaOfPlateletInitial
+        stressArrayToPascals[i] = stressArray[i] * pow(10,12)
+        i = i + 1
+
+    print("stress discovered")
+    print("strain values")
+    print(strainArray)
+    print("stress values pascals")
+    print(stressArrayToPascals)
+
+    hysteresis(strainArray, stressArrayToPascals, switchPoint, TEST, BUG_TESTING_TEXT_OUTPUT_FILE)
 
     # release the video capture object
     plateletVideoData.release()
     # Closes all the windows currently opened.
     cv2.destroyAllWindows()
 
-ImageAnalysis(voltageList, imageList)
+ImageAnalysis(voltageList, imageList, GAIN, DISTANCE_BETWEEN_TEETH, PREDEFINED_LENGTH, SWITCH_POINT)
 
 
 
