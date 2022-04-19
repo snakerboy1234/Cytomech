@@ -14,12 +14,12 @@ DISTANCE_BETWEEN_TEETH = 10
 PREDEFINED_LENGTH = 5.004
 ONLYINCREASING = 0
 USING_EXCEL_DATA_CHANGE = 1
-TEST = 1
+PATH = 1
 SWITCH_POINT = 5
 
 #following sort function taken from stack overflow
 #preforms a numerical sort on images luckily this will not be relevant for actual use of these functions.
-if(TEST == 1):
+if(PATH == 1):
     numbers = re.compile(r'(\d+)')
     def numericalSort(value):
         parts = numbers.split(value)
@@ -138,6 +138,10 @@ def electricFieldToForce(voltageArray, stressArray):
 def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OUTPUT_FILE):
 
     #const variable initialization
+
+    largestStrain  = max(strainArray)
+    smallestStrain = min(strainArray)
+
     SIZEOFGUASSDATATWENTYFOUR = 24
 
     #initialization of iterators
@@ -386,8 +390,8 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     plt.show()
     plt.savefig('hystersis_curve.png')
 
-    GLOuter = (leftbound - rightbound)/2
-    GLInner = (leftbound + rightbound)/2
+    GLOuter = (smallestStrain - largestStrain)/2
+    GLInner = (smallestStrain + largestStrain)/2
 
     if(ONLYINCREASING == 0):
 
@@ -400,9 +404,12 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
             root = combineRootWeightValues[0]
             weight = combineRootWeightValues[1]
 
-            integral = (GLOuter) * (weight) *(alpha * np.exp(beta * (GLOuter) * root * (GLInner))) + integral
+            integralDecreasing = (GLOuter) * (weight) * ((((polyValuesDecreasing[0]*root*root)+polyValuesDecreasing[1]*root+polyValuesDecreasing[2]) * GLOuter) +  (GLInner)) + integralDecreasing
+            integralIncreasing = (GLOuter) * (weight) * ((((polyValuesIncreasing[0]*root*root)+polyValuesIncreasing[1]*root+polyValuesIncreasing[2]) * GLOuter) +  (GLInner)) + integralIncreasing
 
             i = i + 1
+
+            integral = abs(integralIncreasing - integralDecreasing)
 
     print(integral)
     return  0
@@ -761,8 +768,6 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
     hysteresis(strainArray, stressArrayToPascals, switchPoint, TEST, BUG_TESTING_TEXT_OUTPUT_FILE)
 
-    # release the video capture object
-    plateletVideoData.release()
     # Closes all the windows currently opened.
     cv2.destroyAllWindows()
 
