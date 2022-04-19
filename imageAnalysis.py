@@ -142,7 +142,7 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     largestStrain  = max(strainArray)
     smallestStrain = min(strainArray)
 
-    SIZEOFGUASSDATATWENTYFOUR = 24
+    SIZEOFGUASSDATATWENTYFOUR = 21
 
     #initialization of iterators
     i = 0
@@ -186,11 +186,13 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     #end of test initialization
     x  = np.linspace(-2, 2, 101)
     data = np.genfromtxt('GAUSS-24.dat',
-                     skip_header=1,
-                     skip_footer=1,
+                     skip_header=0,
+                     skip_footer=0,
                      names=True,
                      dtype=None,
                      delimiter=' ')
+
+    print(data)
 
     #maxValueIndexOfStressArray = np.argmax(strainArray) do not trust use of numpy as it is a different color. Maybe its better
     lengthOfStrainArray = len(strainArray)
@@ -390,6 +392,10 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     plt.show()
     plt.savefig('hystersis_curve.png')
 
+    print("stiffness", linearSlope[0], file = BUG_TESTING_TEXT_OUTPUT_FILE)
+
+    integralDecreasing = 0
+    integralIncreasing = 0
     GLOuter = (smallestStrain - largestStrain)/2
     GLInner = (smallestStrain + largestStrain)/2
 
@@ -401,6 +407,8 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
 
             combineRootWeightValues = data[i]
 
+            print(data[i])
+
             root = combineRootWeightValues[0]
             weight = combineRootWeightValues[1]
 
@@ -411,7 +419,7 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
 
             integral = abs(integralIncreasing - integralDecreasing)
 
-    print(integral)
+    print("hysteresis value", integral, file = BUG_TESTING_TEXT_OUTPUT_FILE)
     return  0
 
 #takes image and min size to delete smaller image artifacts, connectivity is currently broken returns modified image
@@ -770,6 +778,7 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
     # Closes all the windows currently opened.
     cv2.destroyAllWindows()
+    BUG_TESTING_TEXT_OUTPUT_FILE.close()
 
 ImageAnalysis(voltageList, imageList, GAIN, DISTANCE_BETWEEN_TEETH, PREDEFINED_LENGTH, SWITCH_POINT)
 
