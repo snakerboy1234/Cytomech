@@ -40,12 +40,6 @@ if(PATH == 1):
     i = 0
 #imageList = [0] This is a test function of images as if incorporated from the GUI code base
 
-def polynomialFit(strainArray, stressArray, power):
-
-
-
-    return 0
-
 #removes image data from borders causing issues
 
 def imclearborders(imgBW, radius):
@@ -138,6 +132,9 @@ def electricFieldToForce(voltageArray, stressArray):
 def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OUTPUT_FILE):
 
     #const variable initialization
+
+    largestStress  = max(stressArray)
+    smallestStress = min(stressArray)
 
     largestStrain  = max(strainArray)
     smallestStrain = min(strainArray)
@@ -384,8 +381,8 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     axes.plot(x, linearSlope[0]*x+linearSlope[1], 'r')
     axes.plot(x, (polyValuesDecreasing[0]*x*x)+polyValuesDecreasing[1]*x+polyValuesDecreasing[2], 'r')
     axes.plot(x, (polyValuesIncreasing[0]*x*x)+polyValuesIncreasing[1]*x+polyValuesIncreasing[2], 'r')
-    plt.ylim([0,50])
-    plt.xlim([-0.2,0.2])
+    plt.ylim([smallestStress,largestStress])
+    plt.xlim([smallestStrain,largestStrain])
     plt.xlabel('strain')
     plt.ylabel('stress (Pa)')
     plt.title('Stiffness Curve')
