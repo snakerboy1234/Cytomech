@@ -2,6 +2,7 @@ import tkinter as tk #possibly nessesary unsure
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.image as img
 import time
 import sys
 import os
@@ -14,8 +15,13 @@ DISTANCE_BETWEEN_TEETH = 10
 PREDEFINED_LENGTH = 5.004
 ONLYINCREASING = 0
 USING_EXCEL_DATA_CHANGE = 1
+TEST = 0
 PATH = 1
 SWITCH_POINT = 5
+USING_SPONSER_VALUES = 0
+
+VERBOSE = 0
+VERYVERBOSE = 0
 
 #following sort function taken from stack overflow
 #preforms a numerical sort on images luckily this will not be relevant for actual use of these functions.
@@ -31,6 +37,7 @@ if(PATH == 1):
     #f is designation within listdir that checks if the object is a function but this should read through the directory in the path above and give a list of strings that are the file names
     imageFileNameList = [f for f in os.listdir(PATH) if os.path.isfile(os.path.join(PATH,f))]
     voltageList = [1,2,3,4,5,4,3,2,1,0.5]
+    strainValuesImportedList = [5.004,5.219,5.786,6.068,6.363,6.247,5.867,5.772,5.772,4.955]
     imageList = np.empty(len(imageFileNameList), dtype=cv2.Mat)
     imageFileNameListSorted = sorted(imageFileNameList, key=numericalSort)
 
@@ -156,6 +163,7 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
 
     integral = 0
     
+    valHysteresis = 0
 
     root = 0
     weight = 0
@@ -181,7 +189,7 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
         y2 = np.log(9*x) + 0.1*np.random.random(len(x))
 
     #end of test initialization
-    x  = np.linspace(-2, 2, 101)
+    x  = np.linspace(-2, 10, 10000)
     data = np.genfromtxt('GAUSS-24.dat',
                      skip_header=0,
                      skip_footer=0,
@@ -378,7 +386,7 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     polyValuesIncreasing = np.dot((np.dot(np.linalg.inv(np.dot(C.T,C)),C.T)),stressArrayIncreasingArr)
 
     print(linearSlope)
-    axes.plot(x, linearSlope[0]*x+linearSlope[1], 'r')
+    axes.plot(x, linearSlope[0]*x+linearSlope[1], 'r', color = "blue")
     axes.plot(x, (polyValuesDecreasing[0]*x*x)+polyValuesDecreasing[1]*x+polyValuesDecreasing[2], 'r')
     axes.plot(x, (polyValuesIncreasing[0]*x*x)+polyValuesIncreasing[1]*x+polyValuesIncreasing[2], 'r')
     plt.ylim([smallestStress,largestStress])
@@ -389,12 +397,16 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     plt.show()
     plt.savefig('hystersis_curve.png')
 
+    plotImg = img.imread('hystersis_curve.png')
+
     print("stiffness", linearSlope[0], file = BUG_TESTING_TEXT_OUTPUT_FILE)
 
     integralDecreasing = 0
     integralIncreasing = 0
     GLOuter = (smallestStrain - largestStrain)/2
     GLInner = (smallestStrain + largestStrain)/2
+
+    stiffness = linearSlope[0]
 
     if(ONLYINCREASING == 0):
 
@@ -417,7 +429,8 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
             integral = abs(integralIncreasing - integralDecreasing)
 
     print("hysteresis value", integral, file = BUG_TESTING_TEXT_OUTPUT_FILE)
-    return  0
+
+    return stiffness, integral, plotImg
 
 #takes image and min size to delete smaller image artifacts, connectivity is currently broken returns modified image
 
@@ -514,10 +527,11 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
     lengthOfPixel = -1
 
     #need to change designation to list as array is a sperate numpy class applicable to lists in math and functions
-    lengthArray = []
-    strainArray = []
+    lengthList = []
+    strainList = []
     stressArray = []
     forceArray  = []
+    areaList   = []
     stressArrayToPascals = []
 
     #these values exist but will be deleted in final code
@@ -532,16 +546,17 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
     print("data sent through")
 
     while(i < numFrames):
-        lengthArray.append(0)
+        lengthList.append(0)
         i = i + 1
     i = 0
     while(i < (len(voltageList))):
-        strainArray.append(0)
+        strainList.append(0)
         stressArray.append(0)
         amplifiedVoltageArray.append(0)
         electricFieldArray.append(0)
         forceArray.append(0)
         stressArrayToPascals.append(0)
+        areaList.append(0)
         i = i + 1
     i = 0
 
@@ -698,10 +713,16 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         if((i == 0) or (lengthOfPixel == -1)):
             numberOfWhitePixels = np.sum(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter == 255) 
 
-            lengthOfPixel = predefiniedLength/longestLengthOfImageArrayWhitePixels
+            if(longestLengthOfImageArrayWhitePixels != 0):
+                lengthOfPixel = predefiniedLength/longestLengthOfImageArrayWhitePixels
+            else:
+                lengthOfPixel = 0
 
             #platelet area will not change but this is possibly a area of bug checking, large area change implies bad data or occlusion
-            areaOfPlateletInitial = numberOfWhitePixels * lengthOfPixel
+            areaList[i] = numberOfWhitePixels * lengthOfPixel
+            
+            if(USING_SPONSER_VALUES == 1):
+                areaOfPlateletInitial = 19.6664
 
             if((i == 0) and (lengthOfPixel == -1)):
                 print("initial loop did not find pixel length")
@@ -722,7 +743,7 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         else:
             print('value of longestLengthOfImageArrayWhitePixels is not positive and below thought to be possible values')  
 
-        lengthArray[i] = longestLengthOfImageArrayWhitePixels * lengthOfPixel
+        lengthList[i] = longestLengthOfImageArrayWhitePixels * lengthOfPixel
 
         #testing function will be deleted in final product
 
@@ -734,22 +755,33 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
     #while loop split
     i = 0
-    while(i < (len(lengthArray) - 1)):
+    while(i < (len(lengthList) - 1)):
 
         j = i + 1
 
-        if(lengthArray[i] == 0):
+        if(lengthList[i] == 0):
             print('radius array zero')
+            strainList[i] = (lengthList[i] - lengthList[0])/lengthList[0]
             #not nessesarily an error but will tell user that there is no value here
-        elif(lengthArray[i] != 0):
-            strainArray[i] = (lengthArray[j] - lengthArray[i])/lengthArray[i]
+        elif(lengthList[i] != 0):
+            strainList[i] = (lengthList[i] - lengthList[0])/lengthList[0]
         else:
             print('length array error')
             exit()
 
         i = i + 1
 
+    strainList[0] = 0
+    i = 0
 
+    if(USING_SPONSER_VALUES == 1):
+        while(i < len(strainValuesImportedList)):
+
+            strainList[i] = (strainValuesImportedList[i] - strainValuesImportedList[0])/strainValuesImportedList[0]
+
+            i = i + 1
+
+    strainList[0] = 0
     print("strain array discovered")
     i = 0
     while(i < (len(voltageList))):
@@ -759,6 +791,9 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
     electricFieldToForce(electricFieldArray, forceArray)
 
+    if(USING_SPONSER_VALUES == 0):
+        areaOfPlateletInitial = sum(areaList)/len(areaList)
+
     i = 0
     while(i < len(stressArray)):
         stressArray[i] = forceArray[i]/areaOfPlateletInitial
@@ -767,17 +802,18 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
     print("stress discovered")
     print("strain values")
-    print(strainArray)
+    print(strainList)
     print("stress values pascals")
     print(stressArrayToPascals)
 
-    hysteresis(strainArray, stressArrayToPascals, switchPoint, TEST, BUG_TESTING_TEXT_OUTPUT_FILE)
+    stiffness, valHysteresis, plotImg = hysteresis(strainList, stressArrayToPascals, switchPoint, TEST, BUG_TESTING_TEXT_OUTPUT_FILE)
 
     # Closes all the windows currently opened.
     cv2.destroyAllWindows()
     BUG_TESTING_TEXT_OUTPUT_FILE.close()
 
-ImageAnalysis(voltageList, imageList, GAIN, DISTANCE_BETWEEN_TEETH, PREDEFINED_LENGTH, SWITCH_POINT)
+    return stiffness, valHysteresis, plotImg
 
+ImageAnalysis(voltageList, imageList, GAIN, DISTANCE_BETWEEN_TEETH, PREDEFINED_LENGTH, SWITCH_POINT)
 
 
