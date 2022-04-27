@@ -504,7 +504,7 @@ def fillInBlanks(strainList):
    # main function which preforms image analysis takes image list, voltage data, distance between teeth, the switchpoint, 
    # and gain, gain used solely during testing with daniels code and for our purposes is 1
 
-def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefiniedLength, switchPoint):
+def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefiniedLength, switchPoint, pixelLength):
 
     #test is on at 1
     TEST = 0
@@ -710,13 +710,10 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         print("longest length found")
         #defining pixel length and area with given pixel length with outside parameters with first run barring that some other value
 
+        lengthOfPixel = pixelLength
+
         if((i == 0) or (lengthOfPixel == -1)):
             numberOfWhitePixels = np.sum(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter == 255) 
-
-            if(longestLengthOfImageArrayWhitePixels != 0):
-                lengthOfPixel = predefiniedLength/longestLengthOfImageArrayWhitePixels
-            else:
-                lengthOfPixel = 0
 
             #platelet area will not change but this is possibly a area of bug checking, large area change implies bad data or occlusion
             areaList[i] = numberOfWhitePixels * lengthOfPixel
@@ -814,6 +811,29 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
     return stiffness, valHysteresis, plotImg
 
-ImageAnalysis(voltageList, imageList, GAIN, DISTANCE_BETWEEN_TEETH, PREDEFINED_LENGTH, SWITCH_POINT)
+#takes in a calibrating image showing the teeth to find pixel to micron length
+
+def calibration(image):
+
+    pixelLength = 0
+
+    frame = image
+    frameScaled = cv2.resize(frame, None, fx= SCALEDOWNFACTOR, fy= SCALEDOWNFACTOR, interpolation= cv2.INTER_LINEAR)
+    frameNormalized = cv2.normalize(frameScaled, dst=None, alpha=0, beta=500, norm_type=cv2.NORM_MINMAX)
+    height, width, channels = frameNormalized.shape
+
+    fromCenter = False #Designates ROI not auto defined from center allowing user input in opencv function
+    cropImageSidesList = cv2.selectROI("Crop Stage user input required", frameScaled, fromCenter) #function for selection of region of interest
+
+    # Crop image
+    numberOfPixelsBetweenTeeth = int(cropImageSidesList[0]+cropImageSidesList[2])
+
+    pixelLength = DISTANCE_BETWEEN_TEETH/numberOfPixelsBetweenTeeth
+
+    return pixelLength
+
+pixelLength = calibration
+
+ImageAnalysis(voltageList, imageList, GAIN, DISTANCE_BETWEEN_TEETH, PREDEFINED_LENGTH, SWITCH_POINT, pixelLength)
 
 
