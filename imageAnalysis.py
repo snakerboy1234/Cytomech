@@ -757,15 +757,15 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
         j = i + 1
 
-        if(lengthList[i] == 0):
+        if((lengthList[i] == 0) and (i != 0)):
             print('radius array zero')
             strainList[i] = (lengthList[i] - lengthList[0])/lengthList[0]
             #not nessesarily an error but will tell user that there is no value here
         elif(lengthList[i] != 0):
             strainList[i] = (lengthList[i] - lengthList[0])/lengthList[0]
         else:
-            print('length array error')
-            exit()
+            print('testing with nothing assuming tiny initial value to prevent divide by zero error')
+            strainList[i] = 0.000001
 
         i = i + 1
 
@@ -811,7 +811,7 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
     return stiffness, valHysteresis, plotImg
 
-#takes in a calibrating image showing the teeth to find pixel to micron length
+#takes in a calibrating image showing the teeth to find pixel to micron length. Will bring up a image of teeth 
 
 def calibration(image):
 
