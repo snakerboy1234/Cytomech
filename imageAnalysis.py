@@ -23,6 +23,8 @@ USING_SPONSER_VALUES = 0
 VERBOSE = 0
 VERYVERBOSE = 0
 
+calibrationImage = cv2.imread("Captured.tif")
+
 #following sort function taken from stack overflow
 #preforms a numerical sort on images luckily this will not be relevant for actual use of these functions.
 if(PATH == 1):
@@ -678,13 +680,12 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         #finding longest length of pixel in given image
 
         print(height, width)
-        print(XLim, YLim)
 
         j = 0
         k = 0
-        while(j < (width - 1)):
+        while(k < (height - 1)):
 
-            while(k < (height - 1)):
+            while(j < (width - 1)):
 
                 if(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter[k, j] == 255):
                     pixelCheckGate = 1
@@ -694,12 +695,12 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
                         i = i
                     else:
                         break
-                k = k + 1
+                j = j + 1
 
             #k = int(cropImageSidesList[0])
-            k = 0
+            j = 0
             pixelCheckGate = 0
-            j = j + 1
+            k = k + 1
 
             if(lengthOfImageArrayWhitePixels > longestLengthOfImageArrayWhitePixels):
                 longestLengthOfImageArrayWhitePixels = lengthOfImageArrayWhitePixels
@@ -797,9 +798,8 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         stressArrayToPascals[i] = stressArray[i] * pow(10,12)
         i = i + 1
 
-    print("stress discovered")
-    print("strain values")
-    print(strainList)
+    print("length list")
+    print(lengthList)
     print("stress values pascals")
     print(stressArrayToPascals)
 
@@ -826,13 +826,13 @@ def calibration(image):
     cropImageSidesList = cv2.selectROI("Crop Stage user input required", frameScaled, fromCenter) #function for selection of region of interest
 
     # Crop image
-    numberOfPixelsBetweenTeeth = int(cropImageSidesList[0]+cropImageSidesList[2])
+    numberOfPixelsBetweenTeeth = int(cropImageSidesList[1]+cropImageSidesList[3])
 
     pixelLength = DISTANCE_BETWEEN_TEETH/numberOfPixelsBetweenTeeth
 
     return pixelLength
 
-pixelLength = calibration
+pixelLength = calibration(calibrationImage)
 
 ImageAnalysis(voltageList, imageList, GAIN, DISTANCE_BETWEEN_TEETH, PREDEFINED_LENGTH, SWITCH_POINT, pixelLength)
 
