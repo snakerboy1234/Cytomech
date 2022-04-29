@@ -208,7 +208,7 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
     #bug checking value
     if(lengthOfStrainArray != lengthOfStressArray):
         print('mismatched strain and stress arrays inputed within hysteresis function')
-        return 0
+        return 0, 0, 0
     else:
         #else do nothing
         i=i
@@ -574,7 +574,7 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         frame = imageList[i]
         frameScaled = cv2.resize(frame, None, fx= SCALEDOWNFACTOR, fy= SCALEDOWNFACTOR, interpolation= cv2.INTER_LINEAR)#daniels images are in 4k ULTRA resolution. Opencv HATES this so this will scale it down hopefully with little data loss
         frameNormalized = cv2.normalize(frameScaled, dst=None, alpha=0, beta=500, norm_type=cv2.NORM_MINMAX)#beta and alpha are magic numbers. I dont really understand why .tiff files are like this
-        height, width, channels = frameNormalized.shape
+        height, width, channels = frameScaled.shape
 
         if(SKIP_MANUAL_IMAGE_CROP == 1):
             imCrop = plateletImgThresholdApplied[int(cropImageSidesListTest[1]):int(cropImageSidesListTest[1]+cropImageSidesListTest[3]), int(cropImageSidesListTest[0]):int(cropImageSidesListTest[0]+cropImageSidesListTest[2])]
@@ -583,7 +583,7 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         elif(i == 0):
             # Select ROI
             fromCenter = False #Designates ROI not auto defined from center allowing user input in opencv function
-            cropImageSidesList = cv2.selectROI("Crop Stage user input required", frameScaled, fromCenter) #function for selection of region of interest
+            cropImageSidesList = cv2.selectROI("Crop Stage user input required", frameNormalized, fromCenter) #function for selection of region of interest
 
             # Crop image
             imCrop = frameScaled[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])] #using obtained regions of interest crop is preformed
@@ -683,11 +683,11 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
         j = 0
         k = 0
-        while(k < (height - 1)):
+        while(k < (width - 1)):
 
-            while(j < (width - 1)):
+            while(j < (height - 1)):
 
-                if(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter[k, j] == 255):
+                if(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter[j, k] == 255):
                     pixelCheckGate = 1
                     lengthOfImageArrayWhitePixels = lengthOfImageArrayWhitePixels + 1
                 else:
