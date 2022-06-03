@@ -10,46 +10,56 @@ import re
 
 SCALEDOWNFACTOR = 0.2 #This is a magic number but what can ya do. I dont have a good way of getting image resolution.
 SCALEUPFACTOR = 2.0
-GAIN = 13.2
+GAIN = 1
 DISTANCE_BETWEEN_TEETH = 10
 PREDEFINED_LENGTH = 5.004
 ONLYINCREASING = 0
 USING_EXCEL_DATA_CHANGE = 1
 TEST = 0
 PATH = 1
-SWITCH_POINT = 5
+SWITCH_POINT = 11
 USING_SPONSER_VALUES = 0
+MAX_INTENSITY_FROM_OPENCV = 32
 
-VERBOSE = 0
+FACTOR_FOUR = 4
+
+VERBOSE = 1
 VERYVERBOSE = 0
 
 calibrationImage = cv2.imread("Captured.tif")
 
 #following sort function taken from stack overflow
 #preforms a numerical sort on images luckily this will not be relevant for actual use of these functions.
-if(PATH == 1):
-    numbers = re.compile(r'(\d+)')
-    def numericalSort(value):
-        parts = numbers.split(value)
-        parts[1::2] = map(int, parts[1::2])
-        return parts
+def setup():
 
-    PATH = r'C:\Users\osipo\Desktop\CaptureFilesSeperated\test3Files'
+    PATH = 1
 
-    #f is designation within listdir that checks if the object is a function but this should read through the directory in the path above and give a list of strings that are the file names
-    imageFileNameList = [f for f in os.listdir(PATH) if os.path.isfile(os.path.join(PATH,f))]
-    voltageList = [1,2,3,4,5,4,3,2,1,0.5]
-    strainValuesImportedList = [5.004,5.219,5.786,6.068,6.363,6.247,5.867,5.772,5.772,4.955]
-    imageList = np.empty(len(imageFileNameList), dtype=cv2.Mat)
-    imageFileNameListSorted = sorted(imageFileNameList, key=numericalSort)
+    if(PATH == 1):
+        numbers = re.compile(r'(\d+)')
+        def numericalSort(value):
+            parts = numbers.split(value)
+            parts[1::2] = map(int, parts[1::2])
+            return parts
 
-    i = 0
-    for i in range(0, len(imageFileNameListSorted)):
-        imageList[i] = cv2.imread(os.path.join(PATH, imageFileNameListSorted[i]))
-    i = 0
+        PATH = r'C:\Users\osipo\Desktop\06.02.22\T1.newpower'
+
+        #f is designation within listdir that checks if the object is a function but this should read through the directory in the path above and give a list of strings that are the file names
+        imageFileNameList = [f for f in os.listdir(PATH) if os.path.isfile(os.path.join(PATH,f))]
+        voltageList = [15.18,20.06,24.93,29.79,34.66,39.52,44.38,49.52,54.11,58.98,63.84,58.98,54.11,49.52,44.38,39.52,34.66,29.79,24.93,20.01,14.97,9.95,4.94,0]
+        strainValuesImportedList = [5.004,5.219,5.786,6.068,6.363,6.247,5.867,5.772,5.772,4.955]
+        imageList = np.empty(len(imageFileNameList), dtype=cv2.Mat)
+        imageFileNameListSorted = sorted(imageFileNameList, key=numericalSort)
+
+        i = 0
+        for i in range(0, len(imageFileNameListSorted)):
+            imageList[i] = cv2.imread(os.path.join(PATH, imageFileNameListSorted[i]))
+        i = 0
+
+        return voltageList, imageList
 #imageList = [0] This is a test function of images as if incorporated from the GUI code base
 
 #removes image data from borders causing issues
+#This function is cursed, Im serious here for some reason looking at the files it is spitting out causes it to think find contours is failing to recieve 3 outputs. There is no sane explaination for this.
 
 def imclearborders(imgBW, radius):
 
@@ -228,14 +238,14 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
             i=i
 
         i = i + 1
-    
-    print('past strain value check')
-    sys.stdout.flush()
+   
 
     #bug checkin value
     if(indexWithMaximumValueInStrainArray == -1):
-        print('no value in strain array over -1')
-        return 0
+        strainArray = np.abs(strainArray)
+        largestStrain  = max(strainArray)
+        smallestStrain = min(strainArray)
+        #return 0
     else:
         #else do nothing
         i=i
@@ -259,9 +269,6 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
 
         i = i + 1
 
-    print('past switch point check')
-    sys.stdout.flush()
-
     #creates stress/strain array for decreasing values
     #unchecked for off by one errors
 
@@ -280,9 +287,6 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
 
         i = i + 1
         j = j + 1
-
-    print('past arraySplitCheck')
-    sys.stdout.flush()
 
     #should obtain a decreasing function of the form y=Ae^(Bx)
 
@@ -378,14 +382,14 @@ def hysteresis (strainArray, stressArray, switchPoint, TEST, BUG_TESTING_TEXT_OU
 
     stressArrayDecreasingArr = stressArrayDecreasingArr[:, np.newaxis]
 
-    polyValuesDecreasing = np.dot((np.dot(np.linalg.inv(np.dot(B.T,B)),B.T)),stressArrayDecreasingArr)
+    polyValuesDecreasing = np.dot((np.dot(np.linalg.inv(np.dot(B.T,B)),B.T)),stressArrayDecreasingArr)#error when non inversible matrix found
 
     print(polyValuesDecreasing)
 
     C = np.vstack([strainArrayIncreasingSquared, strainArrayIncreasingArr, np.ones(len(strainArrayIncreasingArr))]).T
     stressArrayIncreasingArr = stressArrayIncreasingArr[:, np.newaxis]
 
-    polyValuesIncreasing = np.dot((np.dot(np.linalg.inv(np.dot(C.T,C)),C.T)),stressArrayIncreasingArr)
+    polyValuesIncreasing = np.dot((np.dot(np.linalg.inv(np.dot(C.T,C)),C.T)),stressArrayIncreasingArr)#error when non inversible matrix found
 
     print(linearSlope)
     axes.plot(x, linearSlope[0]*x+linearSlope[1], 'r', color = "blue")
@@ -506,6 +510,7 @@ def fillInBlanks(strainList):
    # main function which preforms image analysis takes image list, voltage data, distance between teeth, the switchpoint, 
    # and gain, gain used solely during testing with daniels code and for our purposes is 1
 
+
 def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefiniedLength, switchPoint, pixelLength):
 
     #test is on at 1
@@ -544,8 +549,8 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
     cropImageSidesListTest = [319, 156, 194, 154]
 
     BUG_TESTING_TEXT_OUTPUT_FILE = open("bugReport.txt", "w+")
-
-    print("data sent through")
+    HISTOGRAM_TEXT_FILE = open("histogramFile.txt", "w+")
+    VERY_VERBOSE_TXT_FILE = open("VERYVERBOSE.txt", "w+")
 
     while(i < numFrames):
         lengthList.append(0)
@@ -562,8 +567,6 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         i = i + 1
     i = 0
 
-    print("lists set up")
-
     PI = np.pi
 
     tempStressArray = np.empty(numFrames, dtype=object) 
@@ -574,7 +577,10 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         frame = imageList[i]
         frameScaled = cv2.resize(frame, None, fx= SCALEDOWNFACTOR, fy= SCALEDOWNFACTOR, interpolation= cv2.INTER_LINEAR)#daniels images are in 4k ULTRA resolution. Opencv HATES this so this will scale it down hopefully with little data loss
         frameNormalized = cv2.normalize(frameScaled, dst=None, alpha=0, beta=500, norm_type=cv2.NORM_MINMAX)#beta and alpha are magic numbers. I dont really understand why .tiff files are like this
-        height, width, channels = frameScaled.shape
+
+        #frameScaled = frame
+
+        height, width, channels = frameNormalized.shape
 
         if(SKIP_MANUAL_IMAGE_CROP == 1):
             imCrop = plateletImgThresholdApplied[int(cropImageSidesListTest[1]):int(cropImageSidesListTest[1]+cropImageSidesListTest[3]), int(cropImageSidesListTest[0]):int(cropImageSidesListTest[0]+cropImageSidesListTest[2])]
@@ -586,7 +592,7 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
             cropImageSidesList = cv2.selectROI("Crop Stage user input required", frameNormalized, fromCenter) #function for selection of region of interest
 
             # Crop image
-            imCrop = frameScaled[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])] #using obtained regions of interest crop is preformed
+            imCrop = frameNormalized[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])] #using obtained regions of interest crop is preformed
 
             # Display cropped image
             cv2.imshow("cropped image", imCrop)
@@ -594,7 +600,7 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
             cv2.imshow("cropped image resized", resizedCrop)
 
         elif(i != 0):
-            imCrop = frameScaled[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])]
+            imCrop = frameNormalized[int(cropImageSidesList[1]):int(cropImageSidesList[1]+cropImageSidesList[3]), int(cropImageSidesList[0]):int(cropImageSidesList[0]+cropImageSidesList[2])]
         else:
             BUG_TESTING_TEXT_OUTPUT_FILE.write("value of i is unexpected error")
             BUG_TESTING_TEXT_OUTPUT_FILE.close()
@@ -605,7 +611,14 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
         cv2.imshow("Gray filter on platelet", grayPlatelet)
 
+        #finding grey scaled image height and width
+        heightGS, widthGS = grayPlatelet.shape[:2]
+
+        convertImageToSortedList(grayPlatelet, widthGS, heightGS, VERY_VERBOSE_TXT_FILE)
+
+        #need to make seperate threshold function as otsus threshold is too powerful here
         thresholdValue, plateletImgThresholdApplied = cv2.threshold(grayPlatelet, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)#attepmt at otsus thresholding techniques.
+        unusedVar = modifiedOtsuThreshold(grayPlatelet, 0, HISTOGRAM_TEXT_FILE)
         cv2.imshow("image threshold applied", plateletImgThresholdApplied)
         whitePixelsOnScreen =  np.sum(plateletImgThresholdApplied == 255)
         MINUMUMSIZEOFPXIELS = whitePixelsOnScreen*(JUST_OVER_TWO_THIRDS_A_PLATELET)
@@ -614,41 +627,12 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
         #Filling platelet holes. 
         plateletFloodFilled = plateletImgThresholdApplied.copy()#preinitialization of platelet flood filled
-
-        if(i == 0):
-            print("flood fill assigned")
-
         height, width = plateletFloodFilled.shape[:2]#I am unable to understand what .shape() and cannot find what this is online but seems to give width and height with difference of n pixels
-
-        if(i == 0):
-            print("shape occurs")
-
         mask = np.zeros((height+2, width+2), np.uint8)#creates a mask or a zeros array of same size and shape of given platelet matrix array. Values within this array are set to unsigned int lengths of 8
-
-        if(i == 0):
-            print("mask occurs")
-
         cv2.floodFill(plateletFloodFilled, mask, (0,0), 255)#holes within the space selected are filled here
-
-        if(i == 0):
-            print("floodfill occurs")
-
-
         plateletFloodFilledInverse = cv2.bitwise_not(plateletFloodFilled)
-
-        if(i == 0):
-            print("floodfill inverse occurs")
-
         plateletBinarizedHoleFilter = plateletImgThresholdApplied | plateletFloodFilledInverse
-
-        if(i == 0):
-            print("binarization occurs")
-
         plateletBinarizedHoleFilterClearedBorders = imclearborders(plateletBinarizedHoleFilter, 4)#put this definition into the function no nessecity for includes
-
-        if(i == 0):
-            print("hole filter occurs")
-
         plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter = bwareaopen(plateletBinarizedHoleFilterClearedBorders, MINUMUMSIZEOFPXIELS, 4)
 
         print("mask found")
@@ -659,16 +643,11 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         else:
             i = i
 
-        #j = 0
-        #k = 0
-        #XLim = cropImageSidesList[3] - cropImageSidesList[1]
-        #YLim = cropImageSidesList[2] - cropImageSidesList[0]
+        PATH = 'C:/Users/osipo/Desktop/processedImageLocation/image{' + str(i) + '}.png'
 
-        #these values present data but are incorrect
+        cv2.imwrite(PATH, grayPlatelet)
 
-        #j = int(cropImageSidesList[1])
         j = 0
-        #k = int(cropImageSidesList[0])
         k = 0
         XLim = int(cropImageSidesList[3] + cropImageSidesList[1])
         YLim = int(cropImageSidesList[2] + cropImageSidesList[0])
@@ -683,11 +662,11 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
         j = 0
         k = 0
-        while(k < (width - 1)):
+        while(k < (height - 1)):
 
-            while(j < (height - 1)):
+            while(j < (width - 1)):
 
-                if(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter[j, k] == 255):
+                if(plateletBinarizedHoleFilterClearedBordersWSmallObjectsFilter[k, j] == 255):
                     pixelCheckGate = 1
                     lengthOfImageArrayWhitePixels = lengthOfImageArrayWhitePixels + 1
                 else:
@@ -791,6 +770,7 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
 
     if(USING_SPONSER_VALUES == 0):
         areaOfPlateletInitial = sum(areaList)/len(areaList)
+        areaOfPlateletInitial = areaOfPlateletInitial * FACTOR_FOUR
 
     i = 0
     while(i < len(stressArray)):
@@ -798,10 +778,9 @@ def ImageAnalysis(voltageList, imageList, Gain, distanceBetweenTeeth, predefinie
         stressArrayToPascals[i] = stressArray[i] * pow(10,12)
         i = i + 1
 
-    print("length list")
-    print(lengthList)
-    print("stress values pascals")
-    print(stressArrayToPascals)
+    i = 0
+
+    imageProcessingDataOverview(voltageList, strainList, stressArrayToPascals, BUG_TESTING_TEXT_OUTPUT_FILE)
 
     stiffness, valHysteresis, plotImg = hysteresis(strainList, stressArrayToPascals, switchPoint, TEST, BUG_TESTING_TEXT_OUTPUT_FILE)
 
@@ -831,6 +810,151 @@ def calibration(image):
     pixelLength = DISTANCE_BETWEEN_TEETH/numberOfPixelsBetweenTeeth
 
     return pixelLength
+
+#This simply prints out to a txt file the data presented
+
+def imageProcessingDataOverview(processedVoltageList, processedStrainList, processedStressList, BUG_TESTING_TEXT_OUTPUT_FILE):
+
+    i = 0
+
+    print("voltage values", end = "\n", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+    while(i < len(processedVoltageList)):
+
+        print(processedVoltageList[i], end = ", ", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+        i = i + 1
+
+    quartiles = np.percentile(voltageList, [25,50,75])
+    max = np.max(processedVoltageList)
+    min = np.min(processedVoltageList)
+
+    print("\n 5 Number Summary Min: ",min,",Q1: ",quartiles[0],",Median: ",quartiles[1],",Q3: ",quartiles[2],",Max: ",max, end = "", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+
+    print("\n\n strain values", end = "\n", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+    i = 0
+
+    while(i < len(processedStrainList)):
+
+        print(processedStrainList[i], end = ", ", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+        i = i + 1
+
+    quartiles = np.percentile(processedStrainList, [25,50,75])
+    max = np.max(processedStrainList)
+    min = np.min(processedStrainList)
+
+    print("\n 5 Number Summary Min: ",min,",Q1: ",quartiles[0],",Median: ",quartiles[1],",Q3: ",quartiles[2],",Max: ",max, end = "", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+
+    print("\n\n stress values", end = "\n", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+    i = 0
+
+    while(i < len(processedStressList)):
+
+        print(processedStressList[i], end = ", ", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+        i = i + 1
+
+    quartiles = np.percentile(processedStressList, [25,50,75])
+    max = np.max(processedStressList)
+    min = np.min(processedStressList)
+
+    print("\n 5 Number Summary Min: ",min,",Q1: ",quartiles[0],",Median: ",quartiles[1],",Q3: ",quartiles[2],",Max: ",max, end = "", file = BUG_TESTING_TEXT_OUTPUT_FILE)
+
+    print(" ", end = "\n")
+
+    return 0
+
+#will get this working currently part of the cursed bug in clear borders
+def storeImagesExternally(imageList, i):
+
+    if(VERYSHOWY == 1):
+        PATH = 'C:/Users/osipo/Desktop/imageProcessingFileDirectory/greyImageData/greyPlatelet{' + str(i) + '}.png'
+        cv2.imwrite(PATH, imageList[0])
+
+        PATH = 'C:/Users/osipo/Desktop/imageProcessingFileDirectory/thresholdImageData/greyThresholdedPlatelet{' + str(i) + '}.png'
+        cv2.imwrite(PATH, imageList[1])
+
+        PATH = 'C:/Users/osipo/Desktop/imageProcessingFileDirectory/maskImageData/maskPlatelet{' + str(i) + '}.png'
+        cv2.imwrite(PATH, imageList[2])
+
+        PATH = 'C:/Users/osipo/Desktop/imageProcessingFileDirectory/floodFilledImageData/floodFilledPlatelet{' + str(i) + '}.png'
+        cv2.imwrite(PATH, imageList[3])
+
+        PATH = 'C:/Users/osipo/Desktop/imageProcessingFileDirectory/holeFilterImageData/holeFilterPlatelet{' + str(i) + '}.png'
+        cv2.imwrite(PATH, imageList[4])
+
+        PATH = 'C:/Users/osipo/Desktop/imageProcessingFileDirectory/clearedBordersImageData/clearedBordersPlatelet{' + str(i) + '}.png'
+        cv2.imwrite(PATH, imageList[5])
+
+    if(VERYSHOWY == 1 or SHOWY == 1):
+        PATH = 'C:/Users/osipo/Desktop/imageProcessingFileDirectory/processedImageData/processedPlatelet{' + str(i) + '}.png'
+        cv2.imwrite(PATH, imageList[6])
+
+#Otsu's thresholding technique can be used for cases where bimodality exists within the image histogram but this would need to be predetermined
+def modifiedOtsuThreshold(image, normalizationRequired, HISTOGRAM_TEXT_FILE):
+
+    thresholdValue = 0
+
+    #total bins nessesary within histogram
+    binsNum = MAX_INTENSITY_FROM_OPENCV
+
+    # find frequency of pixels in range 0-255
+    histr = cv2.calcHist([image],[0],None,[256],[0,256])
+
+    print("a", file = HISTOGRAM_TEXT_FILE)
+    print(image, file = HISTOGRAM_TEXT_FILE)
+
+    HISTOGRAM_TEXT_FILE.flush()
+
+    # show the plotting graph of an image
+    plt.plot(histr)
+    plt.show()
+
+    return thresholdValue
+
+#sorts an images intensity values numerically from least to greatest for use later
+def convertImageToSortedList(image, width, length, VERY_VERBOSE_TXT_FILE):
+
+    i = 0
+    j = 0
+    k = 0
+
+    intensityList = []
+    sortedIntensityList = []
+
+    pixelAmount = length * width
+
+    while(i < pixelAmount):
+
+        intensityList.append(0)
+        sortedIntensityList.append(0)
+
+        i = i + 1
+
+    i = 0
+
+    while(i < width-1):
+
+        while(j < length-1):
+
+            intensityList[k] = image[j, i]
+            print(image[i, j])
+
+            j = j + 1
+            k + k + 1
+
+        i = i + 1
+
+    #This has n complexity do not use large images
+    sortedIntensityList = intensityList.sort()
+
+    if(VERBOSE == 1):
+        print(intensityList, file = VERY_VERBOSE_TXT_FILE)
+        print(sortedIntensityList, file = VERY_VERBOSE_TXT_FILE)
+        VERY_VERBOSE_TXT_FILE.flush()
+
+    return sortedIntensityList
+
+
+
+voltageList, imageList = setup()
 
 pixelLength = calibration(calibrationImage)
 
